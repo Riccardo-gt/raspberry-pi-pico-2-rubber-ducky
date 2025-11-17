@@ -41,7 +41,21 @@
 #define MOD_CTRL  KEYBOARD_MODIFIER_LEFTCTRL
 #define MOD_SHIFT KEYBOARD_MODIFIER_LEFTSHIFT
 #define MOD_ALT   KEYBOARD_MODIFIER_LEFTALT
-#define MOD_GUI   KEYBOARD_MODIFIER_LEFTGUI
+#define MOD_WIN   KEYBOARD_MODIFIER_LEFTGUI
+
+// ---------- Extra ----------
+#define ASCII_ESC     	  (char) 0x1B 
+#define ASCII_ARROW_UP    (char) 0x01
+#define ASCII_ARROW_DOWN  (char) 0x02
+#define ASCII_ARROW_LEFT  (char) 0x03
+#define ASCII_ARROW_RIGHT (char) 0x04
+#define ASCII_HOME        (char) 0x05
+#define ASCII_END         (char) 0x06
+#define ASCII_PAGE_UP     (char) 0x07
+#define ASCII_PAGE_DOWN   (char) 0x08
+#define ASCII_INSERT      (char) 0x09
+#define ASCII_DELETE      (char) 0x7F
+
 
 // ---------- ASCII → HID mapping ----------
 
@@ -110,6 +124,21 @@ static const uint8_t hid_ascii_usage[128] = {
     [','] = HID_KEY_COMMA,  ['<'] = HID_KEY_COMMA,
     ['.'] = HID_KEY_PERIOD, ['>'] = HID_KEY_PERIOD,
     ['/'] = HID_KEY_SLASH,  ['?'] = HID_KEY_SLASH,
+
+	[0x1B] = HID_KEY_ESCAPE, 
+
+	[0x01] = HID_KEY_ARROW_UP,
+	[0x02] = HID_KEY_ARROW_DOWN,
+	[0x03] = HID_KEY_ARROW_LEFT,
+	[0x04] = HID_KEY_ARROW_RIGHT,
+
+	[0x05] = HID_KEY_HOME,
+	[0x06] = HID_KEY_END,
+	[0x07] = HID_KEY_PAGE_UP,
+	[0x08] = HID_KEY_PAGE_DOWN,
+
+	[0x09] = HID_KEY_INSERT,
+	[0x7F] = HID_KEY_DELETE,
 };
 
 static const uint8_t hid_ascii_shift[128] = {
@@ -130,6 +159,18 @@ static const uint8_t hid_ascii_shift[128] = {
     ['{'] = MOD_SHIFT, ['}'] = MOD_SHIFT, ['|'] = MOD_SHIFT,
     [':'] = MOD_SHIFT, ['"'] = MOD_SHIFT, ['~'] = MOD_SHIFT,
     ['<'] = MOD_SHIFT, ['>'] = MOD_SHIFT, ['?'] = MOD_SHIFT,
+
+    [0x1B] = 0,
+    [0x01] = 0,
+    [0x02] = 0,
+    [0x03] = 0,
+    [0x04] = 0,
+    [0x05] = 0,
+    [0x06] = 0,
+    [0x07] = 0,
+    [0x08] = 0,
+    [0x09] = 0,
+    [0x7F] = 0,
 };
 
 
@@ -155,6 +196,8 @@ static uint32_t blink_interval_ms = BLINK_NOT_MOUNTED;
 #define WAIT_STRING 3
 #define KEY_RELEASE 5
 
+#define WAIT_PROGRAMS 50
+
 
 // ---------- Typing helpers ----------
 
@@ -162,47 +205,64 @@ static inline bool send_hid_report(uint8_t report_id, char c, uint8_t modifiers)
 
 bool type_char(char c)
 {
-  /*
-  // Poll every 10ms
-  const uint32_t interval_ms = 10;
-  static uint32_t start_ms = 0;
+    if (tud_suspended()) {
+        tud_remote_wakeup();
+        return false;
+    }
 
-  if ( board_millis() - start_ms < interval_ms) return false; // not enough time
-  start_ms += interval_ms;
-*/
-  // Remote wakeup
-  if ( tud_suspended())
-  {
-    // Wake up host if we are in suspend mode
-    // and REMOTE_WAKEUP feature is enabled by host
-    tud_remote_wakeup();
-	return false;
-  }else
-  {
-    bool works = send_hid_report(REPORT_ID_KEYBOARD, c, 0);
-  	sleep_ms(KEY_RELEASE);
-  	// key up (release all keys)
-	tud_hid_keyboard_report(REPORT_ID_KEYBOARD, 0, NULL);
-  	sleep_ms(KEY_RELEASE);
-	return works;
-  }
+    // Wait until HID is ready
+    while (!tud_hid_ready()) {
+        tud_task();
+        sleep_ms(1);
+    }
+
+    // PRESS
+    send_hid_report(REPORT_ID_KEYBOARD, c, 0);
+    sleep_ms(KEY_RELEASE);
+
+    // Wait until ready again for release
+    while (!tud_hid_ready()) {
+        tud_task();
+        sleep_ms(1);
+    }
+
+    // RELEASE
+    tud_hid_keyboard_report(REPORT_ID_KEYBOARD, 0, NULL);
+    sleep_ms(KEY_RELEASE);
+
+    return true;
 }
 
-static bool type_char_with_mods(char c, uint8_t extra_mods) {
-  if ( tud_suspended())
-  {
-    tud_remote_wakeup();
-	return false;
-  } else
-  {
-    bool works = send_hid_report(REPORT_ID_KEYBOARD, c, extra_mods);
-  	sleep_ms(KEY_RELEASE);
-  	// key up (release all keys)
-	tud_hid_keyboard_report(REPORT_ID_KEYBOARD, 0, NULL);
-  	sleep_ms(KEY_RELEASE);
-	return works;
-   }
+bool type_char_with_mods(char c, uint8_t mods)
+{
+    if (tud_suspended()) {
+        tud_remote_wakeup();
+        return false;
+    }
+
+    // Wait until HID is ready
+    while (!tud_hid_ready()) {
+        tud_task();
+        sleep_ms(1);
+    }
+
+    // PRESS
+    send_hid_report(REPORT_ID_KEYBOARD, c, mods);
+    sleep_ms(KEY_RELEASE);
+
+    // Wait until ready again for release
+    while (!tud_hid_ready()) {
+        tud_task();
+        sleep_ms(1);
+    }
+
+    // RELEASE
+    tud_hid_keyboard_report(REPORT_ID_KEYBOARD, 0, NULL);
+    sleep_ms(KEY_RELEASE);
+
+    return true;
 }
+
 
 static inline void type_string(const char *s) {
     while (*s) {
@@ -224,29 +284,13 @@ static inline void type_string_with_mods(const char *s, uint8_t extra_mods) {
 
 // ---------- Commonly used ----------
 
-static inline void press_win_r(void) {
-    type_char_with_mods('r', MOD_GUI);
-}
-
-static inline void press_enter(void) {
+static inline void enter(void) {
     type_char('\n');
 }
 
-static void cmd(void) {
-    press_win_r();
-
-    // 2) Give Windows time to show the Run dialog
-    sleep_ms(600);
-
-    type_string("cmd");
-
-    type_char_with_mods('\n', MOD_CTRL | MOD_SHIFT);
-
-}
-
 /*------------- MAIN -------------*/
-int main(void)
-{
+
+void initialiser(void) {
 	board_init();
 	// init device stack on configured roothub port
 	tud_init(BOARD_TUD_RHPORT);
@@ -264,10 +308,27 @@ int main(void)
 	while (!board_button_read()) {
 		sleep_ms(50);
 	}
+	type_char(ASCII_ESC);
+	sleep_ms(50);
+}
 
-	type_string("hello");
-	type_string_with_mods("hello", MOD_SHIFT);
 
+int main(void)
+{
+	initialiser();
+
+	type_char_with_mods('r', MOD_WIN);
+	sleep_ms(WAIT_PROGRAMS);
+	
+	type_string("cmd");
+	sleep_ms(WAIT_PROGRAMS);
+
+	type_char_with_mods('\n', MOD_CTRL | MOD_SHIFT);
+	sleep_ms(500);
+
+	type_char(ASCII_ARROW_LEFT);
+	sleep_ms(WAIT_PROGRAMS);
+	enter();
 }
 
 
@@ -312,11 +373,14 @@ void tud_resume_cb(void)
 
 static inline bool send_hid_report(uint8_t report_id, char c, uint8_t modifiers)
 {
-  // skip if hid is not ready yet
-  if ( !tud_hid_ready() ) return false;
+  uint8_t const ch = (uint8_t)c;
 
-	uint8_t keycode[6] = { 0 };
-	keycode[0] = hid_ascii_usage[c];
+  if (!tud_hid_ready()) return false;
+
+  uint8_t keycode[6] = { 0 };
+  keycode[0] = hid_ascii_usage[ch];
+
+  uint8_t mods = modifiers | hid_ascii_shift[ch];
 
 	return tud_hid_keyboard_report(REPORT_ID_KEYBOARD, modifiers, keycode);
 }
