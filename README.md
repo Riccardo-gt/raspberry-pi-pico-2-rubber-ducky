@@ -5,8 +5,7 @@ This modification allows the user to install whatever from a storage device and 
 
 plug in a storage device (first) and the raspberry pi pico 2.
 press the BOOTSEL button.
-done.
 
-the filepath and appname macros must be defined to suit your stuff.
+the filepath and appname macros must be defined to suit yours.
 
 I know there exists a whole ecosystem around USB Rubber Ducky devices with DuckyScript etc. This does not make use of that or intergrate it at all. It is a standalone fun and educational project on the pico 2
