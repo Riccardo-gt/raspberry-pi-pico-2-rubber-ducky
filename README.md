@@ -8,4 +8,4 @@ press the BOOTSEL button.
 
 the filepath and appname macros must be defined to suit yours.
 
-I know there exists a whole ecosystem around USB Rubber Ducky devices with DuckyScript etc. This does not make use of that or intergrate it at all. It is a standalone fun and educational project on the pico 2
+I know there exists a whole ecosystem around USB Rubber Ducky devices with DuckyScript etc. This does not make use of that or intergrate it at all. It is a tiny standalone fun and educational project on the pico 2
